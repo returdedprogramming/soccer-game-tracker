@@ -1,0 +1,12 @@
+{
+  "name": "Live Soccer Game Tracker",
+  "short_name": "Soccer Tracker",
+  "description": "Live soccer score, clock, events, and spectator sharing.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "portrait",
+  "icons": []
+}

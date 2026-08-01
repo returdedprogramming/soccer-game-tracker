@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>Live Soccer Game Tracker</title>
+  <style>
+    :root {
+      --bg:#0d1117; --panel:#161b22; --panel2:#21262d; --text:#f0f6fc;
+      --muted:#8b949e; --line:#30363d; --green:#2ea043; --red:#da3633;
+      --yellow:#d29922; --blue:#1f6feb;
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body {
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      min-height:100vh;
+    }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; touch-action:manipulation; }
+    .app { max-width:860px; margin:auto; padding:14px 14px 40px; }
+    .topbar { display:flex; gap:8px; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .title { font-weight:800; font-size:18px; letter-spacing:.2px; }
+    .smallbtn,.btn {
+      border:1px solid var(--line); background:var(--panel2); color:var(--text);
+      border-radius:12px; padding:10px 13px; font-weight:700;
+    }
+    .smallbtn { padding:8px 10px; font-size:13px; }
+    .scoreboard {
+      background:linear-gradient(180deg,#161b22,#10151c);
+      border:1px solid var(--line); border-radius:20px; overflow:hidden;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    .game-meta {
+      display:flex; flex-wrap:wrap; gap:6px 12px; justify-content:center;
+      padding:12px 14px 0; color:var(--muted); font-size:12px; text-align:center;
+    }
+    .game-meta strong { color:var(--text); }
+    .period {
+      display:flex; justify-content:center; gap:8px; align-items:center;
+      padding:10px 12px 5px; color:var(--muted); font-weight:800;
+      text-transform:uppercase; letter-spacing:1.2px; font-size:12px;
+    }
+    .period select {
+      background:var(--panel2); color:var(--text); border:1px solid var(--line);
+      border-radius:9px; padding:5px 8px; font-weight:800;
+    }
+    .clock-wrap { text-align:center; }
+    .clock { font-size:clamp(58px,15vw,106px); font-weight:900; line-height:1; padding:5px 0 4px; font-variant-numeric:tabular-nums; }
+    .target { color:var(--muted); font-size:12px; font-weight:700; padding-bottom:10px; }
+    .clock-controls { display:flex; justify-content:center; gap:10px; padding:0 12px 16px; flex-wrap:wrap; }
+    .btn.primary { background:var(--green); border-color:var(--green); min-width:130px; }
+    .btn.danger { background:#3b1414; border-color:#652020; }
+    .teams { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--line); }
+    .team { padding:16px 10px 18px; text-align:center; position:relative; }
+    .team + .team { border-left:1px solid var(--line); }
+    .team-name {
+      width:100%; background:transparent; border:0; color:var(--text);
+      text-align:center; font-weight:900; font-size:clamp(18px,5vw,28px);
+      outline:none; padding:5px;
+    }
+    .score { font-size:clamp(72px,20vw,128px); font-weight:950; line-height:.95; font-variant-numeric:tabular-nums; margin:6px 0 14px; }
+    .score-actions { display:flex; justify-content:center; gap:10px; }
+    .goal { background:var(--blue); border-color:var(--blue); min-width:88px; }
+    .minus { min-width:48px; }
+    .pkline { color:var(--muted); font-weight:800; margin:8px 0 4px; display:none; }
+    .pkline.visible { display:block; }
+    .pk-actions { display:none; justify-content:center; gap:8px; }
+    .pk-actions.visible { display:flex; }
+    .section {
+      margin-top:14px; background:var(--panel); border:1px solid var(--line);
+      border-radius:16px; padding:14px;
+    }
+    .section h3 { margin:0 0 10px; font-size:15px; }
+    .quick { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .quick button { min-height:54px; }
+    .eventrow { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+    .eventrow select,.eventrow input,textarea,.setup-grid input,.setup-grid select {
+      width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--text);
+      border-radius:10px; padding:10px;
+    }
+    textarea { min-height:74px; resize:vertical; }
+    .log { display:flex; flex-direction:column; gap:7px; max-height:270px; overflow:auto; }
+    .logitem {
+      display:grid; grid-template-columns:62px 1fr auto; align-items:center;
+      gap:8px; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:9px 10px;
+    }
+    .logtime { font-variant-numeric:tabular-nums; color:var(--muted); font-weight:800; }
+    .logtext { font-size:14px; }
+    .delete { border:0; background:transparent; color:var(--muted); font-size:17px; }
+    .footer-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .hint { color:var(--muted); font-size:12px; margin-top:8px; line-height:1.4; }
+    .status-dot { width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block; }
+    .status-dot.running { background:#3fb950; box-shadow:0 0 0 5px rgba(63,185,80,.08); }
+    .spectator-only-hidden.viewer { display:none !important; }
+    .modebar { margin-bottom:12px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:10px 12px; display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .modepill { font-size:12px; font-weight:900; border-radius:999px; padding:5px 9px; border:1px solid var(--line); background:var(--panel2); }
+    .modepill.live { background:#12351c; border-color:#245e31; }
+    .modepill.viewer { background:#17233d; border-color:#284b8d; }
+    .conn { color:var(--muted); font-size:12px; }
+    .sharebox { margin-top:10px; padding:10px; border-radius:12px; background:var(--panel2); border:1px solid var(--line); color:var(--muted); font-size:12px; word-break:break-all; }
+
+    .modal {
+      position:fixed; inset:0; background:rgba(0,0,0,.78); z-index:50;
+      display:flex; align-items:center; justify-content:center; padding:18px;
+    }
+    .modal.hidden { display:none; }
+    .modal-card {
+      width:min(700px,100%); background:var(--panel); border:1px solid var(--line);
+      border-radius:20px; padding:18px; box-shadow:0 20px 60px rgba(0,0,0,.45);
+      max-height:92vh; overflow:auto;
+    }
+    .modal-card h2 { margin:0 0 4px; }
+    .modal-card p { color:var(--muted); margin:0 0 16px; }
+    .setup-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field label { display:block; font-size:12px; color:var(--muted); font-weight:800; margin-bottom:6px; }
+    .field.full { grid-column:1 / -1; }
+    .setup-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; flex-wrap:wrap; }
+    .setup-actions .primary { min-width:150px; }
+    @media(max-width:560px) {
+      .quick { grid-template-columns:repeat(2,1fr); }
+      .eventrow,.setup-grid { grid-template-columns:1fr; }
+      .field.full { grid-column:auto; }
+      .app { padding:10px 10px 30px; }
+      .team { padding-left:6px; padding-right:6px; }
+      .goal { min-width:72px; padding-left:9px; padding-right:9px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="setupModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>Game Setup</h2>
+    <p>Set the match details before kickoff. You can edit these later.</p>
+
+    <div class="setup-grid">
+      <div class="field">
+        <label for="setupHome">Home Team</label>
+        <input id="setupHome" placeholder="Home team" value="Home" />
+      </div>
+      <div class="field">
+        <label for="setupAway">Away Team</label>
+        <input id="setupAway" placeholder="Away team" value="Away" />
+      </div>
+
+      <div class="field">
+        <label for="setupDate">Game Date</label>
+        <input id="setupDate" type="date" />
+      </div>
+      <div class="field">
+        <label for="setupHalfLength">Half Length</label>
+        <select id="setupHalfLength">
+          <option value="20">20 minutes</option>
+          <option value="25">25 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="35" selected>35 minutes</option>
+          <option value="40">40 minutes</option>
+          <option value="45">45 minutes</option>
+        </select>
+      </div>
+
+      <div class="field full">
+        <label for="setupCompetition">Competition / League</label>
+        <input id="setupCompetition" placeholder="Example: EA League, Tournament, Friendly" />
+      </div>
+
+      <div class="field full">
+        <label for="setupLocation">Location / Field</label>
+        <input id="setupLocation" placeholder="Example: Great Park Field 12" />
+      </div>
+    </div>
+
+    <div class="setup-actions">
+      <button class="btn" id="cancelSetup">Cancel</button>
+      <button class="btn primary" id="startGameFromSetup">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="topbar">
+    <div class="title">⚽ Live Soccer Game Tracker</div>
+    <div>
+      <button class="smallbtn spectator-only-hidden" id="setupBtn">Game Setup</button>
+      <button class="smallbtn spectator-only-hidden" id="shareBtn">Share Live Link</button>
+      <button class="smallbtn" id="fullscreenBtn">Full Screen</button>
+    </div>
+  </div>
+
+  <div class="modebar"><div><span class="modepill" id="modePill">LOCAL</span> <span class="conn" id="connectionText">Local-only mode</span></div><span class="conn" id="gameCode"></span></div>
+
+  <div class="scoreboard">
+    <div class="game-meta" id="gameMeta"></div>
+
+    <div class="period">
+      <span id="dot" class="status-dot"></span>
+      Period
+      <select id="period">
+        <option value="1">1st Half</option>
+        <option value="2">2nd Half</option>
+        <option value="ET1">ET 1</option>
+        <option value="ET2">ET 2</option>
+        <option value="PK">PK</option>
+      </select>
+    </div>
+
+    <div class="clock-wrap">
+      <div class="clock" id="clock">00:00</div>
+      <div class="target" id="targetText"></div>
+    </div>
+
+    <div class="clock-controls spectator-only-hidden">
+      <button class="btn primary" id="startPause">Start</button>
+      <button class="btn" id="adjustMinus">− 1 min</button>
+      <button class="btn" id="adjustPlus">+ 1 min</button>
+      <button class="btn danger" id="resetClock">Reset Clock</button>
+    </div>
+
+    <div class="teams">
+      <div class="team">
+        <input id="homeName" class="team-name" value="Home" aria-label="Home team name" />
+        <div class="score" id="homeScore">0</div>
+        <div class="score-actions spectator-only-hidden">
+          <button class="btn minus" data-score="home" data-delta="-1">−</button>
+          <button class="btn goal" data-score="home" data-delta="1">+ Goal</button>
+        </div>
+        <div class="pkline" id="homePkLine">PK: <span id="homePK">0</span></div>
+        <div class="pk-actions spectator-only-hidden" id="homePkActions">
+          <button class="smallbtn" data-pk="home" data-delta="-1">− PK</button>
+          <button class="smallbtn" data-pk="home" data-delta="1">+ PK</button>
+        </div>
+      </div>
+
+      <div class="team">
+        <input id="awayName" class="team-name" value="Away" aria-label="Away team name" />
+        <div class="score" id="awayScore">0</div>
+        <div class="score-actions spectator-only-hidden">
+          <button class="btn minus" data-score="away" data-delta="-1">−</button>
+          <button class="btn goal" data-score="away" data-delta="1">+ Goal</button>
+        </div>
+        <div class="pkline" id="awayPkLine">PK: <span id="awayPK">0</span></div>
+        <div class="pk-actions spectator-only-hidden" id="awayPkActions">
+          <button class="smallbtn" data-pk="away" data-delta="-1">− PK</button>
+          <button class="smallbtn" data-pk="away" data-delta="1">+ PK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section spectator-only-hidden">
+    <h3>Quick Events</h3>
+    <div class="quick">
+      <button class="btn" data-event="Goal">⚽ Goal</button>
+      <button class="btn" data-event="Yellow Card">🟨 Yellow</button>
+      <button class="btn" data-event="Red Card">🟥 Red</button>
+      <button class="btn" data-event="Substitution">↔ Sub</button>
+    </div>
+    <div class="eventrow">
+      <select id="eventTeam">
+        <option value="home">Home</option>
+        <option value="away">Away</option>
+        <option value="neutral">Neutral / Game</option>
+      </select>
+      <input id="eventDetail" placeholder="Player # / name or note" />
+    </div>
+  </div>
+
+  <div class="section spectator-only-hidden">
+    <h3>Game Notes</h3>
+    <textarea id="notes" placeholder="Formation, injuries, referee notes, opponent observations, etc."></textarea>
+  </div>
+
+  <div class="section">
+    <h3>Event Log</h3>
+    <div class="log" id="log"></div>
+    <div class="hint">Events are timestamped using the match clock.</div>
+  </div>
+
+  <div class="section spectator-only-hidden">
+    <div class="footer-actions">
+      <button class="btn" id="halftimeBtn">End 1st Half → Start 2nd</button>
+      <button class="btn" id="copySummary">Copy Summary</button>
+      <button class="btn danger" id="newGame">New Game</button>
+    </div>
+    <div class="sharebox" id="shareBox" style="display:none"></div>
+  </div>
+</div>
+
+<script type="module">
+const firebaseConfig = {
+  apiKey: "AIzaSyAgm6uIBkzUUPKRcelb26iDsO_OmCOW0fA",
+  authDomain: "soccer-game-tracker.firebaseapp.com",
+  databaseURL: "https://soccer-game-tracker-default-rtdb.firebaseio.com",
+  projectId: "soccer-game-tracker",
+  storageBucket: "soccer-game-tracker.firebasestorage.app",
+  messagingSenderId: "718399403459",
+  appId: "1:718399403459:web:cd1aff1efaed6604f37976"
+};
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const KEY='soccer-game-tracker-live-v1';
+const today=new Date().toISOString().slice(0,10);
+const params=new URLSearchParams(location.search);
+const requestedGameId=params.get('game');
+const configured=!Object.values(firebaseConfig).some(v=>String(v).includes('PASTE_'));
+
+let state={elapsed:0,running:false,startedAt:null,period:'1',homeName:'Home',awayName:'Away',homeScore:0,awayScore:0,homePK:0,awayPK:0,notes:'',events:[],gameDate:today,location:'',competition:'',halfLength:35,setupComplete:false,adminUid:null,createdAt:null,updatedAt:null};
+let F=null,db=null,auth=null,uid=null,gameId=requestedGameId||null,isSpectator=false,remoteUnsub=null,syncTimer=null;
+
+try{ if(!requestedGameId){const saved=JSON.parse(localStorage.getItem(KEY)); if(saved) state={...state,...saved}; if(state.running&&state.startedAt){state.elapsed+=Math.max(0,Math.floor((Date.now()-state.startedAt)/1000));state.startedAt=Date.now();}} }catch(e){}
+
+const currentElapsed=()=>state.running&&state.startedAt?state.elapsed+Math.floor((Date.now()-state.startedAt)/1000):state.elapsed;
+const fmt=secs=>{secs=Math.max(0,secs|0);const m=Math.floor(secs/60),s=secs%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')};
+const periodLabel=p=>({'1':'1st Half','2':'2nd Half','ET1':'ET 1','ET2':'ET 2','PK':'PK'})[p]||p;
+const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+function formatDate(v){if(!v)return'';const[y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});}
+
+function saveLocal(){if(isSpectator)return;state.homeName=$('#homeName').value.trim()||'Home';state.awayName=$('#awayName').value.trim()||'Away';state.notes=$('#notes').value;localStorage.setItem(KEY,JSON.stringify(state));}
+function publicGameUrl(){const u=new URL(location.origin+location.pathname);if(gameId)u.searchParams.set('game',gameId);return u.toString();}
+function randomGameId(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<7;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
+
+async function pushRemote(immediate=false){
+  if(!configured||!db||!gameId||isSpectator||!uid||uid!==state.adminUid)return;
+  clearTimeout(syncTimer);
+  const run=async()=>{try{const payload={...state,homeName:$('#homeName').value.trim()||state.homeName,awayName:$('#awayName').value.trim()||state.awayName,notes:$('#notes').value,elapsed:currentElapsed(),startedAt:state.running?Date.now():null,updatedAt:Date.now()};state={...state,...payload};await F.set(F.ref(db,`games/${gameId}`),payload);$('#connectionText').textContent='Live sync active';}catch(e){$('#connectionText').textContent='Sync failed — local backup active';}};
+  if(immediate) await run(); else syncTimer=setTimeout(run,180);
+}
+function save(){saveLocal();pushRemote();}
+
+function renderMeta(){const bits=[];if(state.competition)bits.push(`<span><strong>${escapeHtml(state.competition)}</strong></span>`);if(state.gameDate)bits.push(`<span>${escapeHtml(formatDate(state.gameDate))}</span>`);if(state.location)bits.push(`<span>${escapeHtml(state.location)}</span>`);bits.push(`<span>${state.halfLength}-min halves</span>`);$('#gameMeta').innerHTML=bits.join('');}
+function applyMode(){
+  $$('.spectator-only-hidden').forEach(el=>el.classList.toggle('viewer',isSpectator));
+  $('#homeName').disabled=isSpectator;$('#awayName').disabled=isSpectator;$('#period').disabled=isSpectator;
+  const pill=$('#modePill');pill.classList.remove('live','viewer');
+  if(isSpectator){pill.textContent='LIVE VIEW';pill.classList.add('viewer');$('#connectionText').textContent=configured?'Watching live game':'Live sync not configured';}
+  else if(configured&&gameId){pill.textContent='SCOREKEEPER';pill.classList.add('live');$('#connectionText').textContent='Live sync active';}
+  else{pill.textContent='LOCAL';$('#connectionText').textContent=configured?'Ready for live game':'Local-only mode';}
+  $('#gameCode').textContent=gameId?`Game ${gameId}`:'';
+}
+function render(){
+  $('#clock').textContent=fmt(currentElapsed());$('#homeScore').textContent=state.homeScore;$('#awayScore').textContent=state.awayScore;$('#homePK').textContent=state.homePK;$('#awayPK').textContent=state.awayPK;$('#period').value=state.period;$('#startPause').textContent=state.running?'Pause':'Start';$('#dot').classList.toggle('running',state.running);
+  const pk=state.period==='PK';['home','away'].forEach(t=>{$(`#${t}PkLine`).classList.toggle('visible',pk);$(`#${t}PkActions`).classList.toggle('visible',pk&&!isSpectator);});
+  $('#targetText').textContent=(state.period==='1'||state.period==='2')?`Scheduled half: ${state.halfLength}:00`:'';
+  $('#eventTeam').options[0].text=$('#homeName').value||state.homeName;$('#eventTeam').options[1].text=$('#awayName').value||state.awayName;
+  $('#halftimeBtn').textContent=state.period==='1'?'End 1st Half → Start 2nd':state.period==='2'?'End Regulation':state.period==='ET1'?'End ET1 → Start ET2':state.period==='ET2'?'End Extra Time → PK':'PK Shootout Active';
+  $('#log').innerHTML=state.events.length?state.events.slice().reverse().map((e,idx)=>{const i=state.events.length-1-idx;return `<div class="logitem"><div class="logtime">${escapeHtml(e.time)}</div><div class="logtext"><strong>${escapeHtml(e.type)}</strong>${e.team?' · '+escapeHtml(e.team):''}${e.detail?' — '+escapeHtml(e.detail):''}</div>${isSpectator?'':`<button class="delete" data-delete="${i}">×</button>`}</div>`}).join(''):'<div class="hint">No events yet.</div>';
+  renderMeta();applyMode();
+}
+function logEvent(type,teamKey,detail=''){let team='';if(teamKey==='home')team=$('#homeName').value||'Home';if(teamKey==='away')team=$('#awayName').value||'Away';state.events.push({time:fmt(currentElapsed()),period:periodLabel(state.period),type,team,detail:detail.trim()});save();render();}
+function openSetup(){if(isSpectator)return;$('#setupHome').value=state.homeName;$('#setupAway').value=state.awayName;$('#setupDate').value=state.gameDate||today;$('#setupCompetition').value=state.competition||'';$('#setupLocation').value=state.location||'';$('#setupHalfLength').value=String(state.halfLength||35);$('#setupModal').classList.remove('hidden');}
+function closeSetup(){$('#setupModal').classList.add('hidden');}
+
+async function createLiveGame(){if(!configured||!db||!uid)return;if(!gameId)gameId=randomGameId();state.adminUid=uid;state.createdAt=state.createdAt||Date.now();const u=new URL(location.href);u.searchParams.set('game',gameId);history.replaceState({},'',u);$('#shareBox').style.display='block';$('#shareBox').textContent=publicGameUrl();await pushRemote(true);subscribeRemote();}
+async function applySetup(resetMatch=false){state.homeName=$('#setupHome').value.trim()||'Home';state.awayName=$('#setupAway').value.trim()||'Away';state.gameDate=$('#setupDate').value||today;state.competition=$('#setupCompetition').value.trim();state.location=$('#setupLocation').value.trim();state.halfLength=Number($('#setupHalfLength').value)||35;state.setupComplete=true;$('#homeName').value=state.homeName;$('#awayName').value=state.awayName;if(resetMatch){state.elapsed=0;state.running=false;state.startedAt=null;state.period='1';state.homeScore=0;state.awayScore=0;state.homePK=0;state.awayPK=0;state.events=[];state.notes='';$('#notes').value='';}saveLocal();if(configured)await createLiveGame();render();closeSetup();}
+function applyRemote(remote){if(!remote)return;state={...state,...remote};if(remote.running&&remote.startedAt){state.elapsed=Number(remote.elapsed||0)+Math.max(0,Math.floor((Date.now()-remote.startedAt)/1000));state.startedAt=Date.now();}$('#homeName').value=state.homeName||'Home';$('#awayName').value=state.awayName||'Away';$('#notes').value=state.notes||'';render();}
+function subscribeRemote(){if(!configured||!db||!gameId||remoteUnsub)return;remoteUnsub=F.onValue(F.ref(db,`games/${gameId}`),snap=>{const remote=snap.val();if(!remote)return;isSpectator=!(uid&&remote.adminUid===uid);applyRemote(remote);},()=>{$('#connectionText').textContent='Unable to load live game';});}
+async function initFirebase(){if(!configured){render();return;}try{const appmod=await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');const dbmod=await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js');const authmod=await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js');F={...dbmod,...authmod};const app=appmod.initializeApp(firebaseConfig);db=dbmod.getDatabase(app);auth=authmod.getAuth(app);const cred=await authmod.signInAnonymously(auth);uid=cred.user.uid;if(requestedGameId){gameId=requestedGameId;subscribeRemote();}else if(state.setupComplete){await createLiveGame();}render();}catch(e){console.error(e);$('#connectionText').textContent='Firebase connection failed — local backup active';render();}}
+
+$('#startGameFromSetup').onclick=()=>applySetup(!state.setupComplete);$('#cancelSetup').onclick=()=>state.setupComplete?closeSetup():applySetup(true);$('#setupBtn').onclick=openSetup;
+$('#shareBtn').onclick=async()=>{if(!gameId){if(configured)await createLiveGame();else{alert('Live sharing will work after Firebase is configured.');return;}}const url=publicGameUrl();try{if(navigator.share)await navigator.share({title:'Live Soccer Game',url});else{await navigator.clipboard.writeText(url);alert('Live link copied.');}}catch(e){}};
+$('#startPause').onclick=()=>{if(state.running){state.elapsed=currentElapsed();state.running=false;state.startedAt=null;}else{state.running=true;state.startedAt=Date.now();}save();render();};
+$('#resetClock').onclick=()=>{if(!confirm('Reset the current period clock to 00:00?'))return;state.elapsed=0;state.startedAt=state.running?Date.now():null;save();render();};
+$('#adjustMinus').onclick=()=>{state.elapsed=Math.max(0,currentElapsed()-60);state.startedAt=state.running?Date.now():null;save();render();};$('#adjustPlus').onclick=()=>{state.elapsed=currentElapsed()+60;state.startedAt=state.running?Date.now():null;save();render();};
+$('#period').onchange=e=>{state.period=e.target.value;state.elapsed=0;state.running=false;state.startedAt=null;logEvent('Period changed','neutral',periodLabel(state.period));save();render();};
+$$('.score-actions button').forEach(btn=>btn.onclick=()=>{const t=btn.dataset.score,d=Number(btn.dataset.delta),k=t+'Score';state[k]=Math.max(0,state[k]+d);if(d>0)logEvent('Goal',t,$('#eventDetail').value);else{save();render();}});
+$$('[data-pk]').forEach(btn=>btn.onclick=()=>{const t=btn.dataset.pk,d=Number(btn.dataset.delta),k=t+'PK';state[k]=Math.max(0,state[k]+d);if(d>0)logEvent('PK scored',t,$('#eventDetail').value);else{save();render();}});
+$$('[data-event]').forEach(btn=>btn.onclick=()=>{logEvent(btn.dataset.event,$('#eventTeam').value,$('#eventDetail').value);$('#eventDetail').value='';});
+$('#log').onclick=e=>{const b=e.target.closest('[data-delete]');if(!b||isSpectator)return;state.events.splice(Number(b.dataset.delete),1);save();render();};
+$('#halftimeBtn').onclick=()=>{const old=state.period;state.elapsed=currentElapsed();state.running=false;state.startedAt=null;if(old==='1'){logEvent('End of 1st Half','neutral','');state.period='2';state.elapsed=0;}else if(old==='2'){logEvent('End of Regulation','neutral',`${state.homeScore}-${state.awayScore}`);}else if(old==='ET1'){logEvent('End of ET1','neutral','');state.period='ET2';state.elapsed=0;}else if(old==='ET2'){logEvent('End of Extra Time','neutral',`${state.homeScore}-${state.awayScore}`);state.period='PK';state.elapsed=0;}save();render();};
+$('#homeName').oninput=()=>{save();render();};$('#awayName').oninput=()=>{save();render();};$('#notes').oninput=save;
+$('#newGame').onclick=()=>{if(!confirm('Start a new game? This clears score, timer, notes and event log.'))return;if(remoteUnsub){try{remoteUnsub();}catch(e){}remoteUnsub=null;}gameId=null;history.replaceState({},'',location.pathname);state={elapsed:0,running:false,startedAt:null,period:'1',homeName:'Home',awayName:'Away',homeScore:0,awayScore:0,homePK:0,awayPK:0,notes:'',events:[],gameDate:today,location:'',competition:'',halfLength:35,setupComplete:false,adminUid:null,createdAt:null,updatedAt:null};$('#homeName').value='Home';$('#awayName').value='Away';$('#notes').value='';$('#shareBox').style.display='none';saveLocal();render();openSetup();};
+$('#copySummary').onclick=async()=>{const summary=[state.competition||'',state.gameDate?formatDate(state.gameDate):'',state.location||'',`${$('#homeName').value||'Home'} ${state.homeScore} - ${state.awayScore} ${$('#awayName').value||'Away'}`,state.period==='PK'?`PK: ${state.homePK}-${state.awayPK}`:'',`Period: ${periodLabel(state.period)} | Time: ${fmt(currentElapsed())} | Half length: ${state.halfLength} min`,'','Events:',...state.events.map(e=>`${e.time} ${e.period}: ${e.type}${e.team?' - '+e.team:''}${e.detail?' - '+e.detail:''}`),state.notes?`\nNotes:\n${state.notes}`:''].filter(Boolean).join('\n');try{await navigator.clipboard.writeText(summary);$('#copySummary').textContent='Copied!';setTimeout(()=>$('#copySummary').textContent='Copy Summary',1200);}catch{prompt('Copy game summary:',summary);}};
+$('#fullscreenBtn').onclick=async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch(e){}};
+
+$('#homeName').value=state.homeName;$('#awayName').value=state.awayName;$('#notes').value=state.notes||'';if(requestedGameId){isSpectator=true;}render();if(!requestedGameId&&!state.setupComplete)openSetup();setInterval(()=>{if(state.running)render();},250);setInterval(()=>{if(!isSpectator){saveLocal();pushRemote();}},5000);window.addEventListener('beforeunload',saveLocal);await initFirebase();
+</script>
+</body>
+</html>
